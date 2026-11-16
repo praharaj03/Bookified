@@ -34,10 +34,10 @@ export const splitIntoSegments = (
   overlapSize: number = 50, // Words to overlap between segments for context
 ): TextSegment[] => {
   // Validate parameters to prevent infinite loops
-  if (segmentSize <= 0) {
+  if (!Number.isInteger(segmentSize) || segmentSize <= 0) {
     throw new Error("segmentSize must be greater than 0");
   }
-  if (overlapSize < 0 || overlapSize >= segmentSize) {
+  if (!Number.isInteger(overlapSize) || overlapSize < 0 || overlapSize >= segmentSize) {
     throw new Error("overlapSize must be >= 0 and < segmentSize");
   }
 
@@ -91,26 +91,16 @@ export const formatDuration = (seconds: number): string => {
 };
 
 export async function parsePDFFile(file: File) {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  const loadingTask = pdfjsLib.getDocument({ data: await file.arrayBuffer() });
   try {
-    const pdfjsLib = await import("pdfjs-dist");
-
-    if (typeof window !== "undefined") {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url,
-      ).toString();
-    }
-
-    // Read file as array buffer
-    const arrayBuffer = await file.arrayBuffer();
-
-    // Load PDF document
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdfDocument = await loadingTask.promise;
 
     // Render first page as cover image
     const firstPage = await pdfDocument.getPage(1);
-    const viewport = firstPage.getViewport({ scale: 2 }); // 2x scale for better quality
+    const width = firstPage.getViewport({ scale: 1 }).width;
+    const viewport = firstPage.getViewport({ scale: Math.min(2, 1200 / width) });
 
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
@@ -131,7 +121,7 @@ export async function parsePDFFile(file: File) {
     const coverDataURL = canvas.toDataURL("image/png");
 
     // Extract text from all pages
-    let fullText = "";
+    const segments: TextSegment[] = [];
 
     for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
       const page = await pdfDocument.getPage(pageNum);
@@ -140,14 +130,13 @@ export async function parsePDFFile(file: File) {
         .filter((item) => "str" in item)
         .map((item) => (item as { str: string }).str)
         .join(" ");
-      fullText += pageText + "\n";
+      const pageSegments = splitIntoSegments(pageText, 500, 0);
+      for (const segment of pageSegments) {
+        segments.push({ ...segment, segmentIndex: segments.length, pageNumber: pageNum });
+      }
+      page.cleanup();
     }
-
-    // Split text into segments for search
-    const segments = splitIntoSegments(fullText);
-
-    // Clean up PDF document resources
-    await pdfDocument.destroy();
+    if (!segments.length) throw new Error("This PDF has no selectable text. Upload a text-based PDF; scanned books need OCR first.");
 
     return {
       content: segments,
@@ -158,5 +147,7 @@ export async function parsePDFFile(file: File) {
     throw new Error(
       `Failed to parse PDF file: ${error instanceof Error ? error.message : String(error)}`,
     );
+  } finally {
+    await loadingTask.destroy();
   }
 }

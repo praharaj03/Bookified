@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900">
+    <rect width="600" height="900" fill="#4b2e36"/>
+    <rect x="28" y="28" width="544" height="844" fill="none" stroke="#d4b47b" stroke-width="2"/>
+    <text x="300" y="105" text-anchor="middle" font-family="Georgia,serif" font-size="16" letter-spacing="5" fill="#d4b47b">BOOKIFIED CLASSICS</text>
+    <circle cx="300" cy="252" r="66" fill="none" stroke="#d4b47b" stroke-width="3"/>
+    <circle cx="300" cy="252" r="48" fill="none" stroke="#d4b47b" opacity="0.5"/>
+    <path d="M268 238 Q285 227 300 238 Q315 227 332 238 L332 272 Q315 261 300 272 Q285 261 268 272 Z M300 238 L300 272" fill="none" stroke="#d4b47b" stroke-width="3"/>
+    <text x="300" y="420" text-anchor="middle" font-family="Georgia,serif" font-size="49" fill="#fff8ed">The Adventures</text><text x="300" y="486" text-anchor="middle" font-family="Georgia,serif" font-size="49" fill="#fff8ed">of Sherlock</text><text x="300" y="552" text-anchor="middle" font-family="Georgia,serif" font-size="49" fill="#fff8ed">Holmes</text>
+    <line x1="225" y1="665" x2="375" y2="665" stroke="#d4b47b"/>
+    <text x="300" y="725" text-anchor="middle" font-family="Georgia,serif" font-size="24" fill="#d4b47b">Arthur Conan Doyle</text>
+    <text x="300" y="800" text-anchor="middle" font-family="Georgia,serif" font-size="15" letter-spacing="3" fill="#d4b47b">1892 · COMPLETE TEXT</text>
+  </svg>

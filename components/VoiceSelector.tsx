@@ -31,6 +31,7 @@ const VoiceSelector = ({
               return (
                 <Label
                   key={voiceId}
+                  htmlFor={voiceId}
                   className={cn(
                     "voice-selector-option",
                     isSelected
@@ -80,6 +81,7 @@ const VoiceSelector = ({
               return (
                 <Label
                   key={voiceId}
+                  htmlFor={voiceId}
                   className={cn(
                     "voice-selector-option",
                     isSelected

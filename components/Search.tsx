@@ -22,7 +22,9 @@ const Search = () => {
         params.delete("query");
       }
 
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      const nextQuery = params.toString();
+      const nextURL = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      if (nextURL !== `${window.location.pathname}${window.location.search}`) router.replace(nextURL, { scroll: false });
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
@@ -35,6 +37,7 @@ const Search = () => {
       </div>
       <Input
         type="text"
+        aria-label="Search books by title or author"
         placeholder="Search books by title or author"
         className="library-search-input border-none shadow-none focus-visible:ring-0"
         value={query}

@@ -48,6 +48,8 @@
 }
 
 :root {
+  --font-mona-sans: "Segoe UI", Arial, sans-serif;
+  --font-ibm-plex-serif: Georgia, "Times New Roman", serif;
   --radius: 0.625rem;
 
   /* Warm Literary Backgrounds */

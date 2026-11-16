@@ -13,6 +13,10 @@ const BookSchema = new Schema<IBook>({
     coverBlobKey: { type: String },
     fileSize: { type: Number, required: true },
     totalSegments: { type: Number, default: 0 },
+    summary: { type: String },
+    summaryModel: { type: String },
+    isDemo: { type: Boolean, default: false, index: true },
+    sourceURL: { type: String },
 }, { timestamps: true });
 
 const Book = models.Book || model<IBook>('Book', BookSchema);

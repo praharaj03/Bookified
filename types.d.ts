@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { ReactNode } from 'react';
 import { Control, FieldPath, FieldValues } from 'react-hook-form';
 import { LucideIcon } from 'lucide-react';
@@ -9,7 +9,7 @@ import { UploadSchema } from '@/lib/zod';
 // DATABASE MODELS
 // ============================================
 
-export interface IBook extends Document {
+export interface IBook {
     _id: string;
     clerkId: string;
     title: string;
@@ -22,11 +22,15 @@ export interface IBook extends Document {
     coverBlobKey?: string;
     fileSize: number;
     totalSegments: number;
+    summary?: string;
+    summaryModel?: string;
+    isDemo?: boolean;
+    sourceURL?: string;
     createdAt: Date;
     updatedAt: Date;
 }
 
-export interface IBookSegment extends Document {
+export interface IBookSegment {
     clerkId: string;
     bookId: Types.ObjectId;
     content: string;
@@ -37,7 +41,7 @@ export interface IBookSegment extends Document {
     updatedAt: Date;
 }
 
-export interface IVoiceSession extends Document {
+export interface IVoiceSession {
     _id: string;
     clerkId: string;
     bookId: Types.ObjectId;
@@ -75,10 +79,12 @@ export interface TextSegment {
 }
 
 export interface BookCardProps {
+    id: string;
     title: string;
     author: string;
     coverURL: string;
     slug: string;
+    isDemo?: boolean;
 }
 
 export interface Messages {
@@ -116,7 +122,7 @@ export interface FileUploadFieldProps<T extends FieldValues> {
     placeholder: string;
     hint: string;
 }
-import {PLANS, PlanType} from "@/lib/subscription-constants";
+import {PlanType} from "@/lib/subscription-constants";
 
 export interface SessionCheckResult {
     allowed: boolean;
@@ -133,6 +139,7 @@ export interface StartSessionResult {
     maxDurationMinutes?: number;
     error?: string;
     isBillingError?: boolean;
+    searchToken?: string;
 }
 
 export interface EndSessionResult {

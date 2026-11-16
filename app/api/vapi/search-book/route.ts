@@ -1,111 +1,58 @@
 import { NextResponse } from "next/server";
+import { findBookSegments } from "@/lib/book-search";
+import { verifyVoiceToken } from "@/lib/voice-token";
+import { connectToDatabase } from "@/database/mongoose";
+import VoiceSession from "@/database/models/voice-session.model";
 
-import { searchBookSegments } from "@/lib/actions/book.actions";
-
-// Helper function to process book search logic
-async function processBookSearch(bookId: unknown, query: unknown) {
-  // Validate inputs before conversion to prevent null/undefined becoming "null"/"undefined" strings
-  if (bookId == null || query == null || query === "") {
-    return { result: "Missing bookId or query" };
+function parseArgs(args: unknown): Record<string, unknown> {
+  if (typeof args === "string") {
+    try { return parseArgs(JSON.parse(args)); } catch { return {}; }
   }
-
-  // Convert bookId to string
-  const bookIdStr = String(bookId);
-  const queryStr = String(query).trim();
-
-  // Additional validation after conversion
-  if (
-    !bookIdStr ||
-    bookIdStr === "null" ||
-    bookIdStr === "undefined" ||
-    !queryStr
-  ) {
-    return { result: "Missing bookId or query" };
-  }
-
-  // Execute search
-  const searchResult = await searchBookSegments(bookIdStr, queryStr, 3);
-
-  // Return results
-  if (!searchResult.success || !searchResult.data?.length) {
-    return { result: "No information found about this topic in the book." };
-  }
-
-  const combinedText = searchResult.data
-    .map((segment) => (segment as { content: string }).content)
-    .join("\n\n");
-
-  return { result: combinedText };
+  return args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : {};
 }
 
 export async function GET() {
   return NextResponse.json({ status: "ok" });
 }
 
-// Parse tool arguments that may arrive as a JSON string or an object
-function parseArgs(args: unknown): Record<string, unknown> {
-  if (!args) return {};
-  if (typeof args === "string") {
-    try {
-      return JSON.parse(args);
-    } catch {
-      return {};
-    }
-  }
-  return args as Record<string, unknown>;
-}
-
 export async function POST(request: Request) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const access = verifyVoiceToken(token);
+  if (!access) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
   try {
-    const body = await request.json();
+    await connectToDatabase();
+    const session = await VoiceSession.exists({ _id: access.sessionId, bookId: access.bookId, clerkId: access.clerkId, endedAt: { $exists: false } });
+    if (!session) return NextResponse.json({ error: "Voice session has ended" }, { status: 401 });
 
-    console.log("Vapi search-book request:", JSON.stringify(body, null, 2));
+    const search = async (name: unknown, rawArgs: unknown) => {
+      if (name !== "searchBook") return "Unknown function";
+      const args = parseArgs(rawArgs);
+      if (args.bookId && args.bookId !== access.bookId) return "This session can only search the current book.";
+      if (typeof args.query !== "string" || !args.query.trim() || args.query.length > 1000) return "Please provide a search query of at most 1000 characters.";
+      const result = await findBookSegments(access.bookId, access.clerkId, args.query, 5);
+      if (!result.success) return result.error || "Book search is unavailable. Please try again.";
+      if (!result.data.length) return "No matching information was found in the uploaded book. Do not invent an answer.";
+      const passages = result.data.map((segment) => `[Passage ${segment.segmentIndex + 1}${segment.pageNumber ? `, page ${segment.pageNumber}` : ""}]\n${segment.content}`).join("\n\n");
+      return args.query === "__overview__" ? `These are representative excerpts across the book, not the full text. Clearly state that your overview is based on these excerpts.\n\n${passages}` : passages;
+    };
 
-    // Support multiple Vapi formats
-    const functionCall = body?.message?.functionCall;
-    const toolCallList =
-      body?.message?.toolCallList || body?.message?.toolCalls;
+    const legacyCall = body?.message?.functionCall;
+    if (legacyCall) return NextResponse.json({ result: await search(legacyCall.name, legacyCall.parameters) });
 
-    // Handle single functionCall format
-    if (functionCall) {
-      const { name, parameters } = functionCall;
-      const parsed = parseArgs(parameters);
-
-      if (name === "searchBook") {
-        const result = await processBookSearch(parsed.bookId, parsed.query);
-        return NextResponse.json(result);
-      }
-
-      return NextResponse.json({ result: `Unknown function: ${name}` });
+    const calls = body?.message?.toolCallList ?? body?.message?.toolCalls;
+    if (!Array.isArray(calls) || !calls.length || calls.length > 10 || calls.some((call) => !call || typeof call.id !== "string")) {
+      return NextResponse.json({ error: "Expected between 1 and 10 tool calls with IDs" }, { status: 400 });
     }
-
-    // Handle toolCallList format (array of calls)
-    if (!toolCallList || toolCallList.length === 0) {
-      return NextResponse.json({
-        results: [{ result: "No tool calls found" }],
-      });
-    }
-
     const results = [];
-
-    for (const toolCall of toolCallList) {
-      const { id, function: func } = toolCall;
-      const name = func?.name;
-      const args = parseArgs(func?.arguments);
-
-      if (name === "searchBook") {
-        const searchResult = await processBookSearch(args.bookId, args.query);
-        results.push({ toolCallId: id, ...searchResult });
-      } else {
-        results.push({ toolCallId: id, result: `Unknown function: ${name}` });
-      }
-    }
-
+    for (const call of calls) results.push({ toolCallId: call.id, result: await search(call.function?.name, call.function?.arguments ?? call.function?.parameters) });
     return NextResponse.json({ results });
   } catch (error) {
-    console.error("Vapi search-book error:", error);
-    return NextResponse.json({
-      results: [{ result: "Error processing request" }],
-    });
+    console.error("Voice book search failed:", error);
+    return NextResponse.json({ error: "Book search is temporarily unavailable" }, { status: 503 });
   }
 }
